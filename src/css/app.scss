@@ -1,1 +1,108 @@
 // app global css in SCSS form
+.bg-lpage {
+  background-color: #FAF3EA;
+}
+.text-lpage {
+  color: #FAF3EA;
+}
+.text-lpage-80 {
+  color: rgba(250, 243, 234, 0.8);
+}
+.bg-dpage {
+  background-color: #0C3521;
+}
+.text-dpage {
+  color: #0C3521;
+}
+.bg-awareness {
+  background-color: #02B35F;
+}
+.bg-awareness-80 {
+  background-color: rgba(2, 179, 95, 0.8);
+}
+.bg-awareness-50 {
+  background-color: rgba(2, 179, 95, 0.5);
+}
+.text-awareness {
+ color: #02B35F;
+}
+.bg-implementing {
+  background-color: #FFC42E;
+}
+.bg-implementing-80 {
+  background-color: rgba(255, 196, 46, 0.8);
+}
+.bg-implementing-50 {
+  background-color: rgba(255, 196, 46, 0.5);
+}
+.text-implementing {
+ color: #FFC42E;
+}
+.bg-practicing {
+  background-color: #FF76A7;
+}
+.bg-practicing-80 {
+  background-color: rgba(255, 118, 167, 0.8);
+}
+.bg-practicing-50 {
+  background-color: rgba(255, 118, 167, 0.5);
+}
+.text-practicing {
+ color: #FF76A7;
+}
+.bg-mastery {
+  background-color: #F96C01;
+}
+.bg-mastery-80 {
+  background-color: rgba(249, 108, 1, 0.8);
+}
+.bg-mastery-50 {
+  background-color: rgba(249, 108, 1, 0.5);
+}
+.text-mastery {
+ color: #F96C01;
+}
+.bg-primary-80 {
+  background-color: rgba(14, 60, 38, 0.8);
+}
+.text-primary-80 {
+  color: rgba(14, 60, 38, 0.8);
+}
+.text-primary-20 {
+  color: rgba(14, 60, 38, 0.2);
+}
+.text-primary-50 {
+  color: rgba(14, 60, 38, 0.5);
+}
+.bg-secondary-80 {
+  background-color: rgba(193, 180, 159, 0.8);
+}
+.bg-secondary-50 {
+  background-color: rgba(193, 180, 159, 0.5);
+}
+
+.text-weight-semibold {
+  font-weight:600;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Lora", serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+}
+div, p, span, .text-body1, .text-body2, .text-subtitle1, .text-subtitle2, .text-caption {
+  font-family: "Nunito", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
+
+.nunito {
+  font-family: "Nunito", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
+
+.lora {
+  font-family: "Lora", serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
