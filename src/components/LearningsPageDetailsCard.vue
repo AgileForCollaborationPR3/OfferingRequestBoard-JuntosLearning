@@ -2,17 +2,19 @@
   <q-card class="bg-white q-mb-md" style="border-radius: 10px;">
     <!-- First Card Section -->
     <q-card-section class="q-px-md q-py-sm">
-      <div class="row items-center">
+      <div class="row items-top">
         <div class="col">
-          <div class="text-body1 text-primary">
-            {{ isRequest ? 'I WANT TO LEARN' : 'LEARN' }}
+          <div class="text-caption text-weight-bold text-primary-80">
+            {{ isRequest ? 'I want to learn ...' : 'Learn ...' }}
           </div>
           <div class="lora text-h5 text-primary">
             {{ title }}
           </div>
         </div>
         <div class="col-auto">
-          <q-avatar size="32px" :src="avatarUrl" />
+          <UserProfileAvatar :firstName="firstNameTem" :lastName="lastNameTem" :avatarSrc="avatarUrlTem"
+            :showInitialsOnly="true" :onlyShowFirstName="true" avatarSize="24" fontSize="text-body2" bgColor="bg-white"
+            textColor="text-primary" />
         </div>
       </div>
     </q-card-section>
@@ -39,11 +41,13 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, ref, onMounted } from 'vue';
+import { useProfileStore } from '../stores/profile-store';
 import LearningChipsDetails from './commons/LearningChipsDetails.vue';
+import UserProfileAvatar from './commons/userProfileAvatar.vue';
 
 // Props to receive necessary data for the card
-defineProps({
+const props = defineProps({
   title: {
     type: String,
     required: true,
@@ -88,6 +92,44 @@ defineProps({
     type: String,
     default: '',
   },
+  firstName: {
+    type: String,
+    default: ''
+  },
+  lastName: {
+    type: String,
+    default: ''
+  },
+  userId: {
+    type: String,
+    default: ''
+  }
+});
+
+// Profile data state
+const firstNameTem = ref('');
+const lastNameTem = ref('');
+const avatarUrlTem = ref('');
+
+// Fetch user profile using the userId
+const profileStore = useProfileStore();
+
+const fetchUserProfile = async () => {
+  try {
+    const profile = await profileStore.fetchProfile(props.userId);
+    if (profile) {
+      firstNameTem.value = profile.firstName || 'User';
+      lastNameTem.value = profile.lastName || '';
+      avatarUrlTem.value = profile.avatarUrl || '';
+    }
+  } catch (error) {
+    console.error('Failed to fetch user profile:', error.message);
+  }
+};
+
+// Fetch profile on component mount
+onMounted(() => {
+  if (props.userId) fetchUserProfile();
 });
 
 </script>

@@ -13,7 +13,7 @@
     <!-- Optional username chip -->
     <div>
       <div v-if="!showInitialsOnly" :class="['chip__username q-ml-xs', fontSize, bgColor, textColor]">
-        {{ props.firstName + ' ' + props.lastName }}
+        {{ props.firstName + ' ' + props.lastName }} 
       </div>
 
       <!-- Edit button in edit mode -->
@@ -57,7 +57,7 @@ const props = defineProps({
   },
   lastName: {
     type: String,
-    default: "User",
+    default: "",
   },
   showInitialsOnly: {
     type: Boolean,
@@ -87,6 +87,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  onlyShowFirstName: {
+    type: Boolean,
+    default: false
+  }
 });
 
 const avatarImageAvailable = computed(() => !!props.avatarSrc);

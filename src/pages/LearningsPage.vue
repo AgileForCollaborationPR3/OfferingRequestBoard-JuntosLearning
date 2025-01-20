@@ -24,14 +24,14 @@
     </q-page-sticky>
 
     <!-- Content -->
-    <div class="q-pa-md bg-lpage text-primary" :style="{ paddingTop: '185px' }">
+    <div class="q-pa-md bg-lpage text-primary" :style="{ paddingTop: '110px' }">
       <div v-for="learning in learningsStore.learningItems" :key="learning.id" class="q-mb-md"
         @click="goToLearningDetails(learning.id)" style="cursor: pointer;">
         <LearningsPageDetailsCard :title="learning.title || 'Untitled'" :formats="learning.formats || []"
           :type="learning.type || ''" :stage="learning.stage || 'unknown'" :offers="learning.offers || 0"
           :requests="learning.requests || 0" :location="learning.location || 'N/A'" :isRequest="learning.isRequest"
           :avatarUrl="learning.user?.avatarUrl || ''" :maxAge="learning.maxAge || 'N/A'"
-          :minAge="learning.minAge || 'N/A'" :date="learning.date || 'N/A'" />
+          :minAge="learning.minAge || 'N/A'" :date="learning.date || 'N/A'" :userId="learning.userId" />
       </div>
 
       <!-- Show loading or no data message -->

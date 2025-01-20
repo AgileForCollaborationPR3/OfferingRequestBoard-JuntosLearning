@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  arrayUnion,
 } from "firebase/firestore";
 import { useProfileStore } from "./profile-store";
 import { useChatStore } from "./chat-store";
@@ -19,6 +20,7 @@ export const useLearningsStore = defineStore("learnings-store", {
     loading: false,
     error: null,
     learningOffers: [],
+    learningParticipations: [],
     availableFormatOptions: [
       { text: "Company Tour", icon: "o_tour" },
       { text: "Expert Advice", icon: "o_verified" },
@@ -74,6 +76,17 @@ export const useLearningsStore = defineStore("learnings-store", {
     async fetchLearningItems(communityId) {
       try {
         this.loading = true;
+
+        // Use currentCommunityId from the profile if communityId is not provided
+        if (!communityId) {
+          const profileStore = useProfileStore();
+          communityId = profileStore.profile?.currentCommunityId;
+        }
+
+        // Validate the communityId
+        if (!communityId) {
+          throw new Error("Community ID is missing or undefined.");
+        }
 
         const itemsQuery = query(
           collection(db, "learningItems"),
@@ -195,6 +208,35 @@ export const useLearningsStore = defineStore("learnings-store", {
       }
     },
 
+    /** Accept Learning Offer **/
+
+    async acceptLearningOffer(learningId, learningOfferId) {
+      try {
+        const learningRef = doc(db, "learningItems", learningId);
+
+        // Update the learning item's stage and acceptedOfferId
+        await updateDoc(learningRef, {
+          stage: "scheduled",
+          acceptedOfferId: learningOfferId,
+          updatedAt: new Date().toISOString(),
+        });
+
+        // Update the local state
+        const learningIndex = this.learningItems.findIndex(
+          (item) => item.id === learningId
+        );
+        if (learningIndex !== -1) {
+          this.learningItems[learningIndex].stage = "scheduled";
+          this.learningItems[learningIndex].acceptedOfferId = learningOfferId;
+        }
+
+        console.log("Offer accepted successfully!");
+      } catch (error) {
+        console.error("Error accepting offer:", error.message);
+        throw new Error("Failed to accept the offer.");
+      }
+    },
+
     /** Update learning offers **/
     async updateLearningItem(learningId, updates) {
       try {
@@ -206,6 +248,7 @@ export const useLearningsStore = defineStore("learnings-store", {
           (item) => item.id === learningId
         );
         if (learningIndex !== -1) {
+          this.learningItems[learningIndex].stage = "scheduled";
           this.learningItems[learningIndex] = {
             ...this.learningItems[learningIndex],
             ...updates,
@@ -232,6 +275,50 @@ export const useLearningsStore = defineStore("learnings-store", {
       } catch (error) {
         console.error("Error fetching learning offers:", error.message);
         this.error = "Failed to fetch learning offers.";
+      }
+    },
+
+    /** Fetch all participations for a specific learning item **/
+    async fetchLearningParticipations(learningId) {
+      try {
+        const participationsQuery = query(
+          collection(db, "learningParticipations"),
+          where("learningId", "==", learningId)
+        );
+        const snapshot = await getDocs(participationsQuery);
+
+        this.learningParticipations = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+      } catch (error) {
+        console.error(`Error fetching participations:`, error.message);
+        this.error = "Failed to fetch learning participations.";
+      }
+    },
+
+    /** Add Participant **/
+    async addParticipant(learningId, userId) {
+      try {
+        const learningRef = doc(db, "learningItems", learningId);
+
+        // Update Firestore document
+        await updateDoc(learningRef, {
+          acceptedParticipationsId: arrayUnion(userId),
+        });
+
+        // Update local state
+        const learningIndex = this.learningItems.findIndex(
+          (item) => item.id === learningId
+        );
+        if (learningIndex !== -1) {
+          this.learningItems[learningIndex].acceptedParticipationsId.push(
+            userId
+          );
+        }
+      } catch (error) {
+        console.error("Error adding participant:", error.message);
+        throw new Error("Failed to add participant.");
       }
     },
 

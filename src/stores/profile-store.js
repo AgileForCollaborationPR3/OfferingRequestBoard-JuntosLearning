@@ -17,21 +17,16 @@ export const useProfileStore = defineStore("profile", {
   }),
 
   actions: {
-    /** Fetch Profile **/
+    /** Fetch the user's profile **/
     async fetchProfile(userId) {
       try {
-        if (this.publicProfiles[userId]) {
-          return this.publicProfiles[userId]; // Return cached profile
-        }
-
         const profileDoc = await getDoc(doc(db, "profiles", userId));
         if (profileDoc.exists()) {
-          const profileData = profileDoc.data();
-          this.publicProfiles[userId] = profileData; // Cache the profile
-          return profileData;
+          this.profile = profileDoc.data();
+          return this.profile;
         } else {
           console.warn("Profile not found for user:", userId);
-          return null;
+          this.profile = null;
         }
       } catch (error) {
         console.error("Error fetching profile:", error.message);
@@ -66,15 +61,18 @@ export const useProfileStore = defineStore("profile", {
       }
     },
 
-    /** Update Profile Fields **/
+    /** Update specific fields in the user's profile **/
     async updateProfileFields(updates) {
       try {
-        const userId = this.profile?.userId;
-        if (!userId) throw new Error("User not logged in.");
+        if (!this.profile?.userId) throw new Error("User is not logged in.");
 
+        // Add updated timestamp
         updates.updatedAt = new Date().toISOString();
-        await updateDoc(doc(db, "profiles", userId), updates);
 
+        // Update the profile document in Firestore
+        await updateDoc(doc(db, "profiles", this.profile.userId), updates);
+
+        // Update the local state
         this.profile = { ...this.profile, ...updates };
       } catch (error) {
         console.error("Error updating profile:", error.message);

@@ -1,50 +1,68 @@
 <template>
-  <q-card class="q-pa-md q-mb-md">
-    <!-- Display chat messages -->
-    <q-chat-message v-for="message in messages" :key="message.id" :name="message.firstName + ' ' + message.lastName"
-      :avatar="getAvatarUrl(message.userId)" :stamp="formatTimestamp(message.createdAt)">
-      <!-- Offer Message Details -->
-      <template v-if="message.messageType === 'offer'">
-        <div>
-          <strong>Offer Details:</strong>
-          <p v-for="(value, key) in message.preferences" :key="key">
-            {{ key }}: {{ value }}
-          </p>
-          <p><strong>Reason:</strong> {{ message.message }}</p>
+  <div class="chat-container q-pa-md">
+    <!-- Display request and offer messages -->
+    <div class="bg-white q-pa-sm" style="border-radius:10px;">
+      <div v-for="message in messages" :key="message.id" class="special-message q-mb-md">
+        <div v-if="!message.parentMessageId">
+          <div class="row">
+            <div class="col-7">
+              <UserProfileAvatar :firstName="message?.firstName || 'User'" :lastName="message?.lastName || 'Name'"
+                :avatarSrc="message?.avatarUrl || ''" :showInitialsOnly="false" avatarSize="24" fontSize="text-body2"
+                bgColor="bg-white" textColor="text-primary" />
+            </div>
+            <div class="col-4 text-right">
+              <!-- Accept Offer Button -->
+              <q-btn v-if="message.messageType === 'offer'"
+                :label="message.learningOfferId === acceptedOfferId ? 'Offer Accepted' : 'Accept Offer'"
+                :color="message.learningOfferId === acceptedOfferId ? 'practicing' : 'primary'" size="sm"
+                :disabled="!!acceptedOfferId" @click="acceptOffer(message.learningOfferId)"
+                v-show="isCreator || message.learningOfferId === acceptedOfferId" no-caps rounded />
+
+              <!-- Can Join Button for Request -->
+              <q-btn v-if="message.messageType === 'request'"
+                :label="isParticipant(message.userId) ? 'Participant' : 'Can Join'"
+                :color="isParticipant(message.userId) ? 'primary' : 'secondary'" size="sm"
+                :disabled="acceptedParticipations.length >= maxPeople || isParticipant(message.userId)"
+                @click="acceptParticipant(message.userId)" v-show="isCreator" no-caps rounded />
+            </div>
+          </div>
+          <div class="text-primary text-body1" style="padding-left:36px;">
+            <p>{{ message.reason }}</p>
+          </div>
+          <div style="padding-left:28px;">
+            <q-btn label="reply" icon="reply" size="sm" color="primary-50" dense flat @click="showInput = true"></q-btn>
+          </div>
+          <q-separator />
         </div>
-      </template>
 
-      <!-- Request Message Details -->
-      <template v-else-if="message.messageType === 'request'">
-        <div>
-          <p><strong>Reason:</strong> {{ message.message }}</p>
+        <div v-else>
+          <UserProfileAvatar :firstName="message?.firstName || 'User'" :lastName="message?.lastName || 'Name'"
+            :avatarSrc="message?.avatarUrl || ''" :showInitialsOnly="false" avatarSize="24" fontSize="text-body2"
+            bgColor="bg-white" textColor="text-primary" />
+          <div class="text-primary text-body1" style="padding-left:36px;">
+            <p>{{ message.message }}</p>
+          </div>
         </div>
-      </template>
+      </div>
 
-      <!-- Normal Message -->
-      <template v-else>
-        <p>{{ message.message }}</p>
-      </template>
+      <!-- Input field for new messages -->
+      <q-input v-if="showInput" v-model="newMessage" placeholder="Type your message..." outlined dense
+        @keyup.enter="handleSend">
+        <template #append>
+          <q-btn flat round dense icon="send" color="primary" @click="handleSend" />
+        </template>
+      </q-input>
 
-      <!-- Add nested replies -->
-      <MessageReplies :replies="messages.filter(reply => reply.parentMessageId === message.id)"
-        @reply="setReplyToMessage(message.id)" />
-    </q-chat-message>
-
-    <!-- Input field for new messages -->
-    <q-input v-model="newMessage" placeholder="Type your message..." outlined dense @keyup.enter="handleSend">
-      <template #append>
-        <q-btn flat round dense icon="send" color="primary" @click="handleSend" />
-      </template>
-    </q-input>
-  </q-card>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useChatStore } from "../stores/chat-store";
 import { useAuthCommunityStore } from "../stores/auth-community-store";
-import MessageReplies from "./commons/MessageReplies.vue";
+import UserProfileAvatar from "./commons/userProfileAvatar.vue";
+import { useLearningsStore } from "../stores/learnings-store";
 
 // Props
 const props = defineProps({
@@ -64,11 +82,11 @@ const props = defineProps({
 
 const chatStore = useChatStore();
 const authStore = useAuthCommunityStore();
+const learningsStore = useLearningsStore();
 
 const newMessage = ref("");
-const replyToMessageId = ref(null); // To track reply-to messages
 const loading = ref(false);
-const defaultAvatar = "https://via.placeholder.com/150";
+const showInput = ref(false);
 
 // Computed property for filtering messages
 const messages = computed(() => {
@@ -81,37 +99,55 @@ const messages = computed(() => {
   }
 });
 
-// Utility function to format timestamps
-function formatTimestamp(timestamp) {
-  if (!timestamp) return "Invalid date";
-  const date = new Date(timestamp);
-  return date.toLocaleString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+// Check if the current user is the creator of the learning item
+const isCreator = computed(() => {
+  const learningItem = learningsStore.learningItems.find(
+    (item) => item.id === props.learningId
+  );
+  return learningItem?.userId === authStore.user?.uid;
+})
 
-// Fetch messages when the component is mounted
-async function fetchMessages() {
+// Accept offer handler
+async function acceptOffer(learningOfferId) {
   try {
-    loading.value = true;
-    await chatStore.fetchMessagesOnLearningId(props.learningId);
+    await learningsStore.acceptLearningOffer(props.learningId, learningOfferId);
   } catch (error) {
-    console.error("Failed to fetch messages:", error.message);
-  } finally {
-    loading.value = false;
+    console.error("Failed to accept offer:", error.message);
   }
 }
 
-// Method to get the avatar URL dynamically
-function getAvatarUrl(userId) {
-  if (userId === authStore.user?.uid) {
-    return authStore.profile?.avatarUrl || defaultAvatar;
-  }
-  const user = chatStore.getUserProfile(userId); // Implement or fetch from your store
-  return user?.avatarUrl || defaultAvatar;
+// Manage the state of the Can Join button
+
+const maxPeople = computed(() => {
+  const learningItem = learningsStore.learningItems.find((item) => item.id === props.learningId);
+  return learningItem?.maxPeople || 0;
+});
+
+const acceptedParticipations = computed(() => {
+  const learningItem = learningsStore.learningItems.find((item) => item.id === props.learningId);
+  return learningItem?.acceptedParticipationsId || [];
+});
+
+function isParticipant(userId) {
+  return acceptedParticipations.value.includes(userId);
 }
+
+// Add Participant
+async function acceptParticipant(userId) {
+  try {
+    await learningsStore.addParticipant(props.learningId, userId);
+  } catch (error) {
+    console.error("Failed to accept participant:", error.message);
+  }
+}
+
+// Get the accepted offer ID
+const acceptedOfferId = computed(() => {
+  const learningItem = learningsStore.learningItems.find(
+    (item) => item.id === props.learningId
+  );
+  return learningItem?.acceptedOfferId || null;
+});
 
 // Handle sending a new message
 async function handleSend() {
@@ -130,32 +166,34 @@ async function handleSend() {
       learningId: props.learningId,
       learningOfferId: props.learningOfferId || null,
       learningParticipationId: props.learningParticipationId || null,
-      parentMessageId: replyToMessageId.value || null, // Set parentMessageId for replies
       message: newMessage.value,
       userId,
+      parentMessageId: messages.value[0]?.id,
       firstName: profile.firstName || "Unknown",
       lastName: profile.lastName || "",
       avatarUrl: profile.avatarUrl || "",
-      messageType: props.learningOfferId
-        ? "offer"
-        : props.learningParticipationId
-          ? "request"
-          : "normal",
+      messageType: 'normal',
       createdAt: new Date().toISOString(),
     });
 
-    // Clear the input field and reply tracking
+    // Clear the input field
     newMessage.value = "";
-    replyToMessageId.value = null;
+    showInput.value = false;
   } catch (error) {
     console.error("Failed to send message:", error.message);
   }
 }
 
-// Set reply-to message ID
-function setReplyToMessage(messageId) {
-  replyToMessageId.value = messageId;
-}
-
-onMounted(fetchMessages);
+onMounted(async () => {
+  try {
+    loading.value = true;
+    await chatStore.fetchMessagesOnLearningId(props.learningId);
+  } catch (error) {
+    console.error("Failed to fetch messages:", error.message);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
+
+<style scoped></style>

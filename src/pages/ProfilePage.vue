@@ -317,7 +317,7 @@ const languageOptions = ["English", "Dutch", "French", "German", "Spanish"];
 // Fetch profile data on mount
 onMounted(async () => {
   try {
-    await profileStore.fetchProfile(authCommunityStore.user.uid);
+    await profileStore.fetchProfile(authCommunityStore.user?.uid);
     profile.value = profileStore.profile;
 
     // Initialize form fields with profile data

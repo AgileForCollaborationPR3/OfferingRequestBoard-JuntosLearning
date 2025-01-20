@@ -4,7 +4,6 @@
       <q-toolbar class="text-primary" :style="{ width: $q.screen.width + 'px' }">
         <q-toolbar-title class="lora text-h6 text-weight-bold text-primary">
           Community
-          <q-btn label="learning" @click="router.push('/learning')"></q-btn>
         </q-toolbar-title>
         <q-btn flat round text-color="primary" dense icon="o_notifications" />
         <q-btn flat round text-color="primary" dense icon="o_person" @click="router.push('/details')" />
@@ -26,13 +25,13 @@
         </div>
       </div>
     </q-page-sticky>
-    <div class="bg-lpage q-mt-md q-pb-md" :style="{ paddingTop: '85px' }">
+    <div class="bg-lpage q-mt-md q-pb-md" :style="{ paddingTop: '78px' }">
+      <div class="text-center q-pt-sm text-caption text-primary-50">{{ communityStore.communityMembers.length }} MEMBERS
+      </div>
       <div v-if="communityStore.communityMembers.length">
         <PeoplePageCard v-for="member in communityStore.communityMembers" :key="member.id" :firstName="member.firstName"
           :lastName="member.lastName" :about="member.about" :interests="member.interests" :work="member.work"
           :avatarUrl="member.avatarUrl" :userId="member.userId" @click="router.push(`/user/${member.userId}`)" />
-
-        {{ communityStore.communityMembers[0] }}
       </div>
       <div v-else class="text-body1 text-center text-primary-80 q-my-md">
         No members found for the selected community.

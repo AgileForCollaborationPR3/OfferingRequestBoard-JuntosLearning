@@ -4,7 +4,7 @@
     <q-toolbar class="bg-lpage text-primary" flat>
       <q-btn flat round dense icon="arrow_back" @click="goBack" />
       <q-toolbar-title class="lora text-h6 text-weight-bold text-center">
-        {{ learningItem?.type === 'request' ? 'Offer to Help' : 'Join Now' }}
+        {{ learningItem?.isRequest ? 'Offer to Help' : 'Join Now' }}
       </q-toolbar-title>
     </q-toolbar>
 
@@ -24,7 +24,7 @@
       <div class="text-body1 text-primary text-weight-bold q-pt-md">
         Set your Offering Preferences
       </div>
-      <div v-if="learningItem?.type === 'request'">
+      <div v-if="learningItem?.isRequest">
         <q-list>
           <!-- Date Field -->
           <q-item active-class="bg-accent" :active="timeOption === 'flexible' || timeOption === 'beforeDate'">
@@ -251,7 +251,7 @@
       </div>
 
       <!-- Bottom Button -->
-      <q-btn :label="learningItem?.type === 'request' ? 'Submit Offer' : 'Confirm Participation'" color="primary"
+      <q-btn :label="learningItem?.isRequest ? 'Submit Offer' : 'Confirm Participation'" color="primary"
         class="q-mt-md full-width" :disable="hasIncompleteFields" @click="submit" />
     </div>
   </q-page>
@@ -558,7 +558,8 @@ async function submit() {
       await chatStore.addMessage({
         ...submissionData,
         learningParticipationId: participation.id,
-        messageType: "request",
+        learningOfferId: null,
+        messageType: 'request',
         parentMessageId: null,
       });
 
@@ -569,8 +570,10 @@ async function submit() {
 
       await chatStore.addMessage({
         ...submissionData,
+        learningParticipationId: null,
         learningOfferId: offer.id,
-        messageType: "offer",
+        isRequest: false,
+        messageType: 'offer',
         parentMessageId: null,
       });
 

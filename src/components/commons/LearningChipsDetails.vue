@@ -72,6 +72,30 @@ const formattedDate = computed(() => {
 </script>
 
 
+
 <style scoped>
-/* Add specific styles if needed */
+.learning-card-text {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.learning-card-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 2px;
+  border-radius: 10px;
+  font-size: 8px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.learning-card-chip-icon {
+  margin-right: 4px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.learning-card-chip-tex {
+  white-space: nowrap;
+}
 </style>

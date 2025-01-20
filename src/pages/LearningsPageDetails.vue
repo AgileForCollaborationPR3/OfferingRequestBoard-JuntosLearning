@@ -14,7 +14,7 @@
         <!-- Stages -->
         <div class="row justify-between items-center q-mb-md">
           <q-chip v-for="stage in stages" :key="stage.name" :label="stage.name" :icon="stage.icon"
-            :color="learningItem.stage === stage.name ? 'primary' : 'accent'"
+            :color="learningItem.stage === stage.name ? chipColor : 'accent'"
             :text-color="learningItem.stage === stage.name ? 'white' : 'primary'" class="q-px-md" />
         </div>
 
@@ -56,24 +56,32 @@
           <div class="text-body1 text-primary">{{ learningItem.requirements }}</div>
         </div>
 
-        <!-- Action Button -->
-        <q-btn :label="learningItem?.isRequest ? 'Offer To Help' : 'Join Now'" color="primary"
-          class="q-mt-md full-width" rounded @click="handleAction" />
+        <!-- Action Button Routing in stage Posted  -->
+        <q-btn v-if="learningItem.stage === 'posted'" :label="learningItem?.isRequest ? 'Offer To Help' : 'Join Now'"
+          color="primary" class="q-mt-md full-width" rounded @click="handlePostedAction" />
+
+        <!-- Action Button accept / participate in stage Scheduled -->
+        <q-btn v-if="learningItem.stage === 'scheduled'"
+          :label="isCreator ? 'Mark learning as completed' : 'Participate in this offering'"
+          :color="isCreator ? 'mastery' : 'primary'"
+          :disabled="!isCreator && learningItem.acceptedParticipationsId.length >= learningItem.maxPeople"
+          class="q-mt-md full-width" rounded @click="handleScheduledAction" />
       </div>
 
       <!-- Chat Section -->
       <div v-if="learningItem">
         <div class="bg-accent q-pa-md">
+          <div class="text-caption text-primary-50">OFFERS</div>
           <!-- Offer Chat Containers -->
           <div v-for="offer in offers" :key="offer.id">
-            <LearningsPageChat :learningId="learningItem.id" :learningOfferId="offer.id" :messages="chatStore.messages.filter(
-              msg => msg.learningOfferId === offer.id && !msg.parentMessageId
-            )" />
+            <LearningsPageChat :learningId="learningItem.id" :learningOfferId="offer.id" />
           </div>
-          <!-- General Messages -->
-          <LearningsPageChat :learningId="learningItem.id" :messages="chatStore.messages.filter(
-            msg => !msg.learningOfferId && !msg.parentMessageId
-          )" />
+
+          <div class="text-caption text-primary-50 q-pt-md">REQUESTS</div>
+          <!-- Request Chat Containers -->
+          <div v-for="join in participations" :key="join.id">
+            <LearningsPageChat :learningId="learningItem.id" :learningParticipationId="join.id" />
+          </div>
         </div>
       </div>
     </div>
@@ -86,10 +94,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useLearningsStore } from "../stores/learnings-store";
 import { useChatStore } from "../stores/chat-store";
+import { useAuthCommunityStore } from "../stores/auth-community-store";
 import UserProfileAvatar from "../components/commons/userProfileAvatar.vue";
 import LearningChipsDetails from "src/components/commons/LearningChipsDetails.vue";
 import LearningsPageChat from "src/components/LearningsPageChat.vue";
@@ -98,6 +107,7 @@ const route = useRoute();
 const router = useRouter();
 const learningsStore = useLearningsStore();
 const chatStore = useChatStore();
+const authStore = useAuthCommunityStore();
 
 const learningItem = ref(null);
 const stages = [
@@ -106,6 +116,7 @@ const stages = [
   { name: "completed", icon: "done" },
 ];
 const offers = ref([]);
+const participations = ref([]);
 
 async function fetchLearningItem() {
   try {
@@ -129,6 +140,13 @@ async function fetchLearningItem() {
     await learningsStore.fetchLearningOffers(learningId);
     offers.value = learningsStore.learningOffers;
 
+    // Fetch associated learning offers
+    await learningsStore.fetchLearningOffers(learningId);
+    offers.value = learningsStore.learningOffers;
+
+    await learningsStore.fetchLearningParticipations(learningId);
+    participations.value = learningsStore.learningParticipations;
+
     // Fetch associated messages
     await chatStore.fetchMessagesOnLearningId(learningId);
   } catch (error) {
@@ -141,11 +159,48 @@ function goBack() {
   router.back();
 }
 
-function handleAction() {
+function handlePostedAction() {
   router.push({
     name: "acceptLearning",
     params: { id: learningItem.value.id },
   });
+}
+
+const isCreator = computed(() => {
+  return learningItem.value?.userId === authStore.user?.uid;
+});
+
+const chipColor = computed(() => {
+  // Map stages to their corresponding colors
+  const stageColors = {
+    posted: 'awareness',
+    scheduled: 'mastery',
+    completed: 'practicing',
+  };
+
+  // Return the color based on the stage, default to 'accent'
+  return stageColors[learningItem.value.stage] || 'accent';
+});
+
+async function handleScheduledAction() {
+  try {
+    if (isCreator.value) {
+      // Mark learning as completed
+      await learningsStore.updateLearningItem(learningItem.value.id, { stage: 'completed' });
+      learningItem.value.stage = 'completed'; // Update local state
+    } else {
+      // Participate in the offering
+      if (
+        learningItem.value.acceptedParticipationsId.length <
+        learningItem.value.maxPeople
+      ) {
+        await learningsStore.addParticipant(learningItem.value.id, authStore.user?.uid);
+        learningItem.value.acceptedParticipationsId.push(authStore.user?.uid); // Update local state
+      }
+    }
+  } catch (error) {
+    console.error("Action failed:", error.message);
+  }
 }
 
 onMounted(fetchLearningItem);

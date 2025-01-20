@@ -83,82 +83,30 @@
               <q-separator />
 
               <q-tab-panels v-model="tab" animated>
+                <!-- Offerings Tab -->
                 <q-tab-panel name="offerings">
-                  <div class="text-h6 text-primary">Completed Offerings</div>
-
-                  <div class="" :style="{ width: $q.screen.width, height: '113px' }">
-                    <q-scroll-area :thumb-style="thumbStyle" :bar-style="barStyle"
-                      :style="{ width: $q.screen.width - 18 + 'px', height: '113px' }">
-                      <div class="row no-wrap q-pt-xs">
-                        <LearningCardMini class="q-mx-xs" v-for="n in 5" :key="n" />
-                      </div>
-                    </q-scroll-area>
-                  </div>
-
-                  <div class="text-h6 text-primary q-mt-md">Available For</div>
-                  <div v-if="matchedAvailableForOptions.length">
-                    <q-chip v-for="option in matchedAvailableForOptions" :key="option.text" :label="option.text"
-                      :icon="option.icon" text-color="primary" color="accent" size="md" />
-                  </div>
-                  <div v-else class="text-body2 text-primary-80">
-                    Not specified
-                  </div>
-
-                  <div class="text-h6 text-primary q-mt-md q-mb-xs">Availability</div>
-                  <div v-if="sortedAvailability.length">
-                    <div class="availability-container q-mb-xl">
-                      <div v-for="slot in sortedAvailability" :key="`${slot.day}-${slot.from}-${slot.to}`"
-                        class="availability-block">
-                        <div class="text-primary">
-                          <div class="text-body2 text-weight-bold">{{ slot.day }}</div>
-                          <div class="text-body2 text-weight-thin">{{ slot.from }} - {{ slot.to }}</div>
-                        </div>
-                      </div>
+                  <div v-for="(stageItems, stage) in offeringStages" :key="stage" class="q-pb-md">
+                    <div class="text-h6 text-primary">{{ stage }}</div>
+                    <div v-if="stageItems.length" class="row no-wrap q-pt-xs">
+                      <LearningCardMini v-for="item in stageItems" :key="item.id" :title="item.title"
+                        :isRequest="item.isRequest" :stage="item.stage" :location="item.location"
+                        :formats="item.formats" :minAge="item.minAge" :maxAge="item.maxAge" class="q-mx-xs" />
                     </div>
+                    <div v-else class="text-body2 text-primary-80">No {{ stage.toLowerCase() }} yet.</div>
                   </div>
-                  <div v-else class="text-body2 text-primary-80">
-                    Not specified
-                  </div>
-
                 </q-tab-panel>
 
+                <!-- Requests Tab -->
                 <q-tab-panel name="requests">
-                  <div class="text-h6 text-primary">Completed Offerings</div>
-
-                  <div class="" :style="{ width: $q.screen.width, height: '113px' }">
-                    <q-scroll-area :thumb-style="thumbStyle" :bar-style="barStyle"
-                      :style="{ width: $q.screen.width - 18 + 'px', height: '113px' }">
-                      <div class="row no-wrap q-pt-xs">
-                        <LearningCardMini class="q-mx-xs" v-for="n in 5" :key="n" />
-                      </div>
-                    </q-scroll-area>
-                  </div>
-
-                  <div class="text-h6 text-primary q-mt-md">Available For</div>
-                  <div v-if="matchedAvailableForOptions.length">
-                    <q-chip v-for="option in matchedAvailableForOptions" :key="option.text" :label="option.text"
-                      :icon="option.icon" text-color="primary" color="accent" size="md" />
-                  </div>
-                  <div v-else class="text-body2 text-primary-80">
-                    Not specified
-                  </div>
-
-                  <div class="text-h6 text-primary q-mt-md q-mb-xs">Availability</div>
-                  <div v-if="sortedAvailability.length">
-                    <div class="availability-container q-mb-xl">
-                      <div v-for="slot in sortedAvailability" :key="`${slot.day}-${slot.from}-${slot.to}`"
-                        class="availability-block">
-                        <div class="text-primary">
-                          <div class="text-body2 text-weight-bold">{{ slot.day }}</div>
-                          <div class="text-body2 text-weight-thin">{{ slot.from }} - {{ slot.to }}</div>
-                        </div>
-                      </div>
+                  <div v-for="(stageItems, stage) in requestStages" :key="stage" class="q-pb-md">
+                    <div class="text-h6 text-primary">{{ stage }}</div>
+                    <div v-if="stageItems.length" class="row no-wrap q-pt-xs">
+                      <LearningCardMini v-for="item in stageItems" :key="item.id" :title="item.title"
+                        :isRequest="item.isRequest" :stage="item.stage" :location="item.location"
+                        :formats="item.formats" :minAge="item.minAge" :maxAge="item.maxAge" class="q-mx-xs" />
                     </div>
+                    <div v-else class="text-body2 text-primary-80">No {{ stage.toLowerCase() }} yet.</div>
                   </div>
-                  <div v-else class="text-body2 text-primary-80">
-                    Not specified
-                  </div>
-
                 </q-tab-panel>
 
               </q-tab-panels>
@@ -176,6 +124,7 @@
 import { ref, onMounted, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useProfileStore } from "../stores/profile-store";
+import { useLearningsStore } from "../stores/learnings-store";
 import { useQuasar } from "quasar";
 import LearningCardMini from "../components/PeoplePageDetailsLearningCardMini.vue"
 
@@ -183,6 +132,7 @@ const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
 const profileStore = useProfileStore();
+const learningsStore = useLearningsStore();
 
 const userId = ref(route.params.id); // Extract user ID from the route
 const userData = ref(null); // Store user data
@@ -211,6 +161,7 @@ const formattedDate = computed(() => {
   return date.toLocaleDateString(undefined, options);
 });
 
+/**
 // Horizontal scroll area style for filter
 const thumbStyle = ref({
   width: "0px",
@@ -221,6 +172,7 @@ const barStyle = ref({
   width: "0px",
   opacity: 0,
 });
+
 
 
 // All Available For Options
@@ -236,6 +188,7 @@ const availableOptions = [
   { text: "Q&A", icon: "o_contact_support" },
 ].sort((a, b) => a.text.localeCompare(b.text));
 
+
 // Match the options from the server with the available options
 const matchedAvailableForOptions = computed(() =>
   availableOptions.filter(option => userData.value.availableFor.includes(option.text))
@@ -244,6 +197,7 @@ const matchedAvailableForOptions = computed(() =>
 
 // Define the order of days
 const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
 
 // Sort and prepare the availability data
 const sortedAvailability = computed(() =>
@@ -257,26 +211,49 @@ const sortedAvailability = computed(() =>
       // If the day is the same, sort by the starting time
       return a.from.localeCompare(b.from);
     })
-);
+);**/
 
+// Group learning items by stage for offerings
+const offeringStages = computed(() => {
+  const items = learningsStore.learningItems.filter(
+    (item) => item.userId === userId.value && !item.isRequest
+  );
+  return {
+    Posted: items.filter((item) => item.stage === "posted"),
+    Scheduled: items.filter((item) => item.stage === "scheduled"),
+    Completed: items.filter((item) => item.stage === "completed"),
+  };
+});
 
-// Fetch user data from the `profiles` collection
+// Group learning items by stage for requests
+const requestStages = computed(() => {
+  const items = learningsStore.learningItems.filter(
+    (item) => item.userId === userId.value && item.isRequest
+  );
+  return {
+    Posted: items.filter((item) => item.stage === "posted"),
+    Scheduled: items.filter((item) => item.stage === "scheduled"),
+    Completed: items.filter((item) => item.stage === "completed"),
+  };
+});
+
+// Fetch user data and learning items
 const fetchUserData = async () => {
   try {
     loading.value = true;
     error.value = null;
 
-    const data = await profileStore.fetchProfile(userId.value); // Fetch profile
-    if (data) {
-      userData.value = data;
-    } else {
-      error.value = "User not found.";
-    }
+    // Fetch profile
+    const profile = await profileStore.fetchProfile(userId.value);
+    userData.value = profile || null;
+
+    // Fetch learning items (no communityId needed as it defaults in the store)
+    await learningsStore.fetchLearningItems();
+
+    loading.value = false;
   } catch (err) {
     console.error("Error fetching user data:", err.message);
     error.value = "Failed to load user data.";
-  } finally {
-    loading.value = false;
   }
 };
 
@@ -289,6 +266,9 @@ watch(() => route.params.id, (newId) => {
 // Fetch user data on mount
 onMounted(fetchUserData);
 </script>
+
+
+
 
 <style scoped>
 .user-card {

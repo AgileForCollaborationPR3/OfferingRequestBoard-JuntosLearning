@@ -555,7 +555,9 @@ async function postLearningOffering() {
       communityId,
       stage: 'posted',
       userId: authStore.user?.uid,
-      isRequest: props.isRequest  // Distinguish between request and offering
+      isRequest: props.isRequest,  // Distinguish between request and offering
+      acceptedOfferId: null,
+      acceptedParticipationsId: []
     };
 
     await addLearningsStore.addLearningItem(learningData);

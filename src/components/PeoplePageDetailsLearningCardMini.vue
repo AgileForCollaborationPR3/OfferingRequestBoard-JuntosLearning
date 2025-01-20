@@ -1,37 +1,66 @@
 <template>
-  <q-card class="bg-accent" style="border-radius:10px; width:170px;height:105px;">
-    <q-card-section class="learning-card-text q-px-sm q-py-none">
+  <q-card class="bg-accent" style="border-radius:10px; width:190px;height:105px;">
+    <!-- Card Title -->
+    <q-card-section class="learning-card-text q-px-sm q-py-none q-pt-xs">
       <div class="row justify-around items-center">
-        <div class="col text-primary text-weight-bold">Learn ... </div>
-        <div class="col text-right ">
-          <q-chip class="q-px-xs q-mx-none" label="Back Soon" size="xs" color="implementing" text-color="primary" />
+        <div class="col text-primary text-weight-bold text-caption">
+          {{ isRequest ? 'I want to learn ...' : 'Learn ...' }}
         </div>
       </div>
     </q-card-section>
-    <q-card-section class="learning-card-text q-px-sm q-py-none lora text-primary">how to
-      experience live
-      on a Greek
-      Island.</q-card-section>
+
+    <!-- Card Subtitle (Title) -->
+    <q-card-section class="learning-card-text q-px-sm q-py-none lora text-primary">
+      {{ title }}
+    </q-card-section>
+
     <q-separator class="q-my-xs q-mx-xs" />
-    <q-card-section class="q-px-sm q-py-none">
-      <div class="learning-card-chip text-primary bg-accent" v-for="option in availableOptions" :key="option.text">
-        <i class="learning-card-chip-icon material-icons-outlined">{{ option.icon }}</i>
-        <span class="learning-cardchip-text">{{ option.text }}</span>
-      </div>
+
+    <!-- Learning Chips Details -->
+    <q-card-section class="q-px-sm q-py-none overflow-hidden">
+      <LearningChipsDetails :formats="formats" :location="location" :date="date" :minAge="minAge" :maxAge="maxAge"
+        class="overflow-hidden" />
     </q-card-section>
   </q-card>
 </template>
 
 <script lang="js" setup>
+import LearningChipsDetails from './commons/LearningChipsDetails.vue';
 
-// options chips
-const availableOptions = [
-  { text: "Guest Lesson", icon: "school" },
-  { text: "Online", icon: "location_on" },
-  { text: "Age: 10 - 12", icon: "cake" },
-  { text: "Dutch", icon: "language" },
-].sort((a, b) => a.text.localeCompare(b.text));
-
+defineProps({
+  title: {
+    type: String,
+    required: true,
+  },
+  isRequest: {
+    type: Boolean,
+    required: true,
+  },
+  stage: {
+    type: String,
+    required: true,
+  },
+  location: {
+    type: String,
+    required: false,
+  },
+  formats: {
+    type: Array,
+    required: true,
+  },
+  date: {
+    type: String,
+    required: false,
+  },
+  minAge: {
+    type: Number,
+    required: true,
+  },
+  maxAge: {
+    type: Number,
+    required: true,
+  },
+});
 </script>
 
 <style scoped>
