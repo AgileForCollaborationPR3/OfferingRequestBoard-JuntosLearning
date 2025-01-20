@@ -11,10 +11,8 @@
 
       <div class="row items-center">
         <div class="col-8 q-pl-sm">
-          <q-select dense rounded standout v-model="selectedCommunity" :options="communityStore.communities.map((community) => ({
-            label: community.name,
-            value: community.id,
-          }))" label="Select Community" color="white" label-color="primary" bg-color="white" />
+          <q-select dense rounded standout v-model="selectedCommunity" :options="communityOptions"
+            label="Select Community" color="white" label-color="primary" bg-color="white" />
         </div>
         <div class="col-2 q-pl-sm">
           <q-btn label="filter" icon="o_filter_list" color="primary" size="sm" flat no-caps rounded dense />
@@ -29,12 +27,12 @@
     <div class="q-pa-md bg-lpage text-primary" :style="{ paddingTop: '185px' }">
       <div v-for="learning in learningsStore.learningItems" :key="learning.id" class="q-mb-md"
         @click="goToLearningDetails(learning.id)" style="cursor: pointer;">
-        <LearningsPageDetailsCard :title="learning.title" :formats="learning.formats" :type="learning.type"
-          :stage="learning.stage" :offers="learning.offers" :requests="learning.requests" :location="learning.location"
-          :isRequest="learning.type === 'request'" :avatarUrl="learning.user.avatarUrl" :maxAge="learning.maxAge"
-          :minAge="learning.minAge" :date="learning.date" />
+        <LearningsPageDetailsCard :title="learning.title || 'Untitled'" :formats="learning.formats || []"
+          :type="learning.type || ''" :stage="learning.stage || 'unknown'" :offers="learning.offers || 0"
+          :requests="learning.requests || 0" :location="learning.location || 'N/A'" :isRequest="learning.isRequest"
+          :avatarUrl="learning.user?.avatarUrl || ''" :maxAge="learning.maxAge || 'N/A'"
+          :minAge="learning.minAge || 'N/A'" :date="learning.date || 'N/A'" />
       </div>
-
 
       <!-- Show loading or no data message -->
       <q-banner v-if="isLoading" class="q-my-md text-center">
@@ -57,9 +55,9 @@
 
 <script setup>
 import { useQuasar } from "quasar";
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import { useAuthCommunityStore } from "../stores/auth-community-store";
-import { useLearningsStore } from "src/stores/learnings-store";
+import { useLearningsStore } from "../stores/learnings-store";
 import LearningsPageDetailsCard from "../components/LearningsPageDetailsCard.vue";
 import { useRouter } from "vue-router";
 
@@ -69,6 +67,14 @@ const communityStore = useAuthCommunityStore();
 const learningsStore = useLearningsStore();
 const selectedCommunity = ref(null);
 const isLoading = ref(true);
+
+// Derived community options for the dropdown
+const communityOptions = computed(() =>
+  communityStore.communities.map((community) => ({
+    label: community.name,
+    value: community.id,
+  }))
+);
 
 // Navigate to add learning item
 const goToAdd = (isRequest) => {
@@ -91,6 +97,7 @@ onMounted(async () => {
 // Fetch learning items when community changes
 watch(selectedCommunity, async (newCommunity) => {
   if (newCommunity) {
+    isLoading.value = true; // Set loading state
     await fetchLearningItems(newCommunity);
   }
 });
@@ -101,6 +108,10 @@ const fetchLearningItems = async (communityId) => {
     await learningsStore.fetchLearningItems(communityId);
   } catch (error) {
     console.error("Failed to fetch learning items:", error);
+    $q.notify({
+      type: "negative",
+      message: "Unable to fetch learning items. Please try again later.",
+    });
   } finally {
     isLoading.value = false;
   }

@@ -30,7 +30,7 @@
 
         <!-- Posted By -->
         <div v-if="learningItem?.user" class="q-my-md">
-          <div class="text-caption text-primary-80">POSTED BY</div>
+          <div class="text-caption text-primary-50">POSTED BY</div>
           <UserProfileAvatar :firstName="learningItem?.user.firstName || 'User'"
             :lastName="learningItem?.user.lastName || 'Name'" :avatarSrc="learningItem?.user.avatarUrl || ''"
             :showInitialsOnly="false" avatarSize="24" fontSize="text-body2" bgColor="bg-white"
@@ -39,21 +39,21 @@
 
         <!-- Preferences -->
         <div class="q-my-md">
-          <div class="text-caption text-primary-80">PREFERENCES</div>
+          <div class="text-caption text-primary-50">PREFERENCES</div>
           <LearningChipsDetails :formats="learningItem?.formats" :location="learningItem?.location"
             :date="learningItem?.date" :min-age="learningItem?.minAge" :max-age="learningItem?.maxAge" />
         </div>
 
         <!-- Details -->
         <div v-if="learningItem?.details" class="q-my-md">
-          <div class="text-caption text-primary-80">DETAILS</div>
-          <div class="text-body1 text-primary-80">{{ learningItem.details }}</div>
+          <div class="text-caption text-primary-50">DETAILS</div>
+          <div class="text-body1 text-primary">{{ learningItem.details }}</div>
         </div>
 
         <!-- Requirements -->
         <div v-if="learningItem?.requirements" class="q-my-md">
-          <div class="text-caption text-primary-80">PRIOR KNOWLEDGE & EXPERIENCE</div>
-          <div class="text-body1 text-primary-80">{{ learningItem.requirements }}</div>
+          <div class="text-caption text-primary-50">PRIOR KNOWLEDGE & EXPERIENCE</div>
+          <div class="text-body1 text-primary">{{ learningItem.requirements }}</div>
         </div>
 
         <!-- Action Button -->
@@ -61,11 +61,20 @@
           class="q-mt-md full-width" rounded @click="handleAction" />
       </div>
 
-      <!-- Additional Offers -->
-      <div class="bg-accent q-pa-md">
-        <div class="text-body2 text-primary text-weight-bold">OFFERS</div>
-        <!-- Offer Component -->
-        <div><!-- offer component placeholder --></div>
+      <!-- Chat Section -->
+      <div v-if="learningItem">
+        <div class="bg-accent q-pa-md">
+          <!-- Offer Chat Containers -->
+          <div v-for="offer in offers" :key="offer.id">
+            <LearningsPageChat :learningId="learningItem.id" :learningOfferId="offer.id" :messages="chatStore.messages.filter(
+              msg => msg.learningOfferId === offer.id && !msg.parentMessageId
+            )" />
+          </div>
+          <!-- General Messages -->
+          <LearningsPageChat :learningId="learningItem.id" :messages="chatStore.messages.filter(
+            msg => !msg.learningOfferId && !msg.parentMessageId
+          )" />
+        </div>
       </div>
     </div>
 
@@ -76,41 +85,55 @@
   </q-page>
 </template>
 
-
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useLearningsStore } from '../stores/learnings-store';
-import UserProfileAvatar from '../components/commons/userProfileAvatar.vue';
-import LearningChipsDetails from 'src/components/commons/LearningChipsDetails.vue';
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useLearningsStore } from "../stores/learnings-store";
+import { useChatStore } from "../stores/chat-store";
+import UserProfileAvatar from "../components/commons/userProfileAvatar.vue";
+import LearningChipsDetails from "src/components/commons/LearningChipsDetails.vue";
+import LearningsPageChat from "src/components/LearningsPageChat.vue";
 
 const route = useRoute();
 const router = useRouter();
 const learningsStore = useLearningsStore();
+const chatStore = useChatStore();
 
 const learningItem = ref(null);
-const stages = [{ name: 'posted', icon: 'bookmark' }, { name: 'scheduled', icon: 'event' }, { name: 'completed', icon: 'done' }];
-
+const stages = [
+  { name: "posted", icon: "bookmark" },
+  { name: "scheduled", icon: "event" },
+  { name: "completed", icon: "done" },
+];
+const offers = ref([]);
 
 async function fetchLearningItem() {
   try {
     const learningId = route.params.id;
-    if (!learningId) throw new Error('Invalid learning item ID.');
+    if (!learningId) throw new Error("Invalid learning item ID.");
 
     const item = learningsStore.learningItems.find((i) => i.id === learningId);
+
     if (!item) {
-      await learningsStore.fetchLearningItems(); // Fetch data if not in store
+      await learningsStore.fetchLearningItems(route.params.communityId);
       learningItem.value = learningsStore.learningItems.find((i) => i.id === learningId);
     } else {
       learningItem.value = item;
     }
 
     if (!learningItem.value) {
-      throw new Error('Learning item not found.');
+      throw new Error("Learning item not found.");
     }
+
+    // Fetch associated learning offers
+    await learningsStore.fetchLearningOffers(learningId);
+    offers.value = learningsStore.learningOffers;
+
+    // Fetch associated messages
+    await chatStore.fetchMessagesOnLearningId(learningId);
   } catch (error) {
     console.error(error.message);
-    router.back(); // Navigate back if item not found
+    router.back(); // Navigate back if item is not found
   }
 }
 
@@ -119,15 +142,9 @@ function goBack() {
 }
 
 function handleAction() {
-  console.log(
-    learningItem.value.isRequest
-      ? 'Offering help for this learning request.'
-      : 'Requesting help for this learning offering.'
-  );
-
   router.push({
-    name: 'acceptLearning',
-    params: { id: learningItem.value.id }, // Pass the learning item ID
+    name: "acceptLearning",
+    params: { id: learningItem.value.id },
   });
 }
 

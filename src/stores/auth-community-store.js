@@ -21,6 +21,8 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "firebase/storage";
+import { useChatStore } from "../stores/chat-store";
+import { useLearningsStore } from "./learnings-store";
 
 export const useAuthCommunityStore = defineStore("auth-community-store", {
   state: () => ({
@@ -373,6 +375,28 @@ export const useAuthCommunityStore = defineStore("auth-community-store", {
       } catch (error) {
         console.error("Error joining community:", error.message);
         throw new Error(error.message || "Unable to join community.");
+      }
+    },
+    //Handle the community switch and trigger refreshes in related stores.
+    async switchCommunityAndRefresh(communityId) {
+      try {
+        // Validate and switch community
+        await this.switchCommunity(communityId);
+
+        // Trigger refreshes in related stores
+        const learningsStore = useLearningsStore();
+        const chatStore = useChatStore();
+
+        await learningsStore.fetchLearningItems(communityId);
+        await chatStore.fetchMessagesOnCommunity(communityId);
+
+        console.log(`Switched to community ${communityId} and refreshed data.`);
+      } catch (error) {
+        console.error(
+          "Error switching community and refreshing data:",
+          error.message
+        );
+        throw new Error("Failed to switch community. Please try again.");
       }
     },
 

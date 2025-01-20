@@ -6,16 +6,19 @@ import {
   query,
   where,
   getDocs,
-  getDoc,
   doc,
+  getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { useProfileStore } from "./profile-store";
+import { useChatStore } from "./chat-store";
 
 export const useLearningsStore = defineStore("learnings-store", {
   state: () => ({
     learningItems: [],
     loading: false,
     error: null,
+    learningOffers: [],
     availableFormatOptions: [
       { text: "Company Tour", icon: "o_tour" },
       { text: "Expert Advice", icon: "o_verified" },
@@ -30,20 +33,33 @@ export const useLearningsStore = defineStore("learnings-store", {
   }),
 
   getters: {
-    getLearningByType: (state) => (type) => {
-      return state.learningItems.filter((item) => item.type === type);
-    },
+    getLearningByType: (state) => (type) =>
+      state.learningItems.filter((item) => item.type === type),
   },
 
   actions: {
+    /** Add a new learning item **/
     async addLearningItem(data) {
       try {
         this.loading = true;
+
+        // Validate required fields
+        if (data.isRequest === undefined) {
+          throw new Error("isRequest is missing.");
+        }
+
+        if (!data.communityId || !data.userId || !data.title) {
+          throw new Error(
+            "Missing required fields for adding a learning item."
+          );
+        }
+
         const docRef = await addDoc(collection(db, "learningItems"), {
           ...data,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
+
         console.log("Learning item added with ID:", docRef.id);
       } catch (error) {
         console.error("Error adding learning item:", error.message);
@@ -54,132 +70,194 @@ export const useLearningsStore = defineStore("learnings-store", {
       }
     },
 
-    /** Fetch Learning Items of one Community **/
+    /** Fetch all learning items for a community **/
     async fetchLearningItems(communityId) {
-      const profileStore = useProfileStore(); // Access the profile store
       try {
         this.loading = true;
 
-        // Fetch learning items from the database
         const itemsQuery = query(
           collection(db, "learningItems"),
           where("communityId", "==", communityId)
         );
         const snapshot = await getDocs(itemsQuery);
 
-        const items = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            formats: data.formats.map((format) => {
-              const matchedFormat = this.availableFormatOptions.find(
-                (option) => option.text === format
-              );
-              return matchedFormat
-                ? { text: matchedFormat.text, icon: matchedFormat.icon }
-                : { text: format, icon: null };
-            }),
-            offers: data.offers || 0,
-            requests: data.requests || 0,
-            avatarUrl: data.avatarUrl || "",
-          };
-        });
+        const items = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          formats: this.formatOptions(doc.data().formats),
+        }));
 
-        // Extract unique userIds
         const userIds = [...new Set(items.map((item) => item.userId))];
+        const profiles = await this.fetchProfiles(userIds);
 
-        // Fetch profiles for all userIds
-        const profiles = await profileStore.fetchProfiles(userIds);
-
-        // Merge profiles into learning items
-        this.learningItems = items.map((item) => {
-          const userProfile =
-            profiles.find((profile) => profile?.userId === item.userId) || {};
-          return {
-            ...item,
-            user: {
-              firstName: userProfile.firstName || "Unknown",
-              lastName: userProfile.lastName || "",
-              avatarUrl: userProfile.avatarUrl || "",
-            },
-          };
-        });
+        this.learningItems = items.map((item) => ({
+          ...item,
+          user:
+            profiles.find((profile) => profile.userId === item.userId) ||
+            this.defaultUserProfile(),
+        }));
       } catch (error) {
         console.error("Error fetching learning items:", error.message);
         this.error = "Failed to fetch learning items.";
-        throw error;
       } finally {
         this.loading = false;
       }
     },
 
-    /** Get a single learning item by ID **/
+    /** Fetch a single learning item by ID **/
     async getLearningItemById(id) {
+      const existingItem = this.learningItems.find((item) => item.id === id);
+      if (existingItem) return existingItem;
+
       try {
-        // First, try to find the item in the local state
-        const existingItem = this.learningItems.find((item) => item.id === id);
-        if (existingItem) {
-          return existingItem;
-        }
+        const docSnap = await getDoc(doc(db, "learningItems", id));
+        if (!docSnap.exists()) throw new Error("Learning item not found.");
 
-        // If not found, fetch it directly from the database
-        const docRef = doc(db, "learningItems", id);
-        const docSnap = await getDoc(docRef);
+        const data = docSnap.data();
+        const formattedItem = {
+          id: docSnap.id,
+          ...data,
+          formats: this.formatOptions(data.formats),
+        };
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-
-          // Format the fetched item
-          const formattedItem = {
-            id: docSnap.id,
-            ...data,
-            formats: data.formats.map((format) => {
-              const matchedFormat = this.availableFormatOptions.find(
-                (option) => option.text === format
-              );
-              return matchedFormat
-                ? { text: matchedFormat.text, icon: matchedFormat.icon }
-                : { text: format, icon: null };
-            }),
-          };
-
-          // Optionally add it to the local state
-          this.learningItems.push(formattedItem);
-
-          return formattedItem;
-        } else {
-          throw new Error("Learning item not found.");
-        }
+        this.learningItems.push(formattedItem);
+        return formattedItem;
       } catch (error) {
         console.error("Error fetching learning item by ID:", error.message);
         throw error;
       }
     },
 
-    /** Submit an offer on a learning request **/
-    async addOffer(offerData) {
+    /** Add a new learning offer **/
+    async addLearningOffer(offerData) {
       try {
-        const offersRef = collection(db, "learningOffers"); // Collection for storing offers
-        const docRef = await addDoc(offersRef, offerData);
-        console.log("Offer added with ID:", docRef.id);
-        return docRef.id;
+        const offerRef = await addDoc(collection(db, "learningOffers"), {
+          ...offerData,
+          createdAt: new Date().toISOString(),
+        });
+
+        const chatStore = useChatStore();
+        await chatStore.addMessage({
+          learningId: offerData.learningId,
+          learningOfferId: offerRef.id,
+          userId: offerData.userId,
+          message: offerData.reason, // Directly use the reason as the message
+          firstName: offerData.firstName,
+          lastName: offerData.lastName,
+          avatarUrl: offerData.avatarUrl || "",
+          messageType: "offer",
+        });
+
+        console.log("Learning offer added with ID:", offerRef.id);
+        return offerRef.id;
       } catch (error) {
-        console.error("Error adding offer:", error);
-        throw new Error("Unable to add offer to Firebase");
+        console.error("Error adding learning offer:", error.message);
+        throw new Error("Failed to add learning offer.");
       }
     },
-    /** Join a learning offer **/
-    async joinOffer(participationData) {
-      try {
-        const participationRef = collection(db, "learningParticipations"); // Collection for participations
-        const docRef = await addDoc(participationRef, participationData);
-        console.log("Participation recorded with ID:", docRef.id);
-        return docRef.id;
-      } catch (error) {
-        console.error("Error adding participation:", error);
-        throw new Error("Unable to join the learning offering");
+
+    async createLearningOffer(data) {
+      if (!data.firstName || !data.lastName) {
+        throw new Error("User profile details are missing.");
       }
+
+      try {
+        const offerRef = await addDoc(collection(db, "learningOffers"), {
+          ...data,
+          createdAt: new Date().toISOString(),
+        });
+
+        return { id: offerRef.id, ...data };
+      } catch (error) {
+        console.error("Error creating learning offer:", error.message);
+        throw new Error("Failed to create learning offer.");
+      }
+    },
+
+    async createLearningParticipation(data) {
+      if (!data.firstName || !data.lastName) {
+        throw new Error("User profile details are missing.");
+      }
+
+      try {
+        const participationRef = await addDoc(
+          collection(db, "learningParticipations"),
+          {
+            ...data,
+            createdAt: new Date().toISOString(),
+          }
+        );
+
+        return { id: participationRef.id, ...data };
+      } catch (error) {
+        console.error("Error creating learning participation:", error.message);
+        throw new Error("Failed to create learning participation.");
+      }
+    },
+
+    /** Update learning offers **/
+    async updateLearningItem(learningId, updates) {
+      try {
+        const learningRef = doc(db, "learningItems", learningId);
+        await updateDoc(learningRef, updates);
+
+        // Update local state
+        const learningIndex = this.learningItems.findIndex(
+          (item) => item.id === learningId
+        );
+        if (learningIndex !== -1) {
+          this.learningItems[learningIndex] = {
+            ...this.learningItems[learningIndex],
+            ...updates,
+          };
+        }
+      } catch (error) {
+        console.error("Error updating learning item:", error.message);
+        throw new Error("Failed to update learning item.");
+      }
+    },
+
+    /** Fetch all offers for a specific learning item **/
+    async fetchLearningOffers(learningId) {
+      try {
+        const offersQuery = query(
+          collection(db, "learningOffers"),
+          where("learningId", "==", learningId)
+        );
+        const snapshot = await getDocs(offersQuery);
+        this.learningOffers = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+      } catch (error) {
+        console.error("Error fetching learning offers:", error.message);
+        this.error = "Failed to fetch learning offers.";
+      }
+    },
+
+    /** Helper: Fetch profiles for user IDs **/
+    async fetchProfiles(userIds) {
+      const profileStore = useProfileStore();
+      return profileStore.fetchProfiles(userIds);
+    },
+
+    /** Helper: Format options **/
+    formatOptions(formats) {
+      return formats.map((format) => {
+        const match = this.availableFormatOptions.find(
+          (option) => option.text === format
+        );
+        return match || { text: format, icon: null };
+      });
+    },
+
+    /** Helper: Default user profile **/
+    defaultUserProfile() {
+      return {
+        firstName: "Unknown",
+        lastName: "",
+        avatarUrl: "",
+      };
     },
   },
 });

@@ -268,6 +268,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { formatDateShort } from '../utils/formatDate';
 import { useAuthCommunityStore } from 'src/stores/auth-community-store';
+import { useChatStore } from "../stores/chat-store";
 
 // Initialize Quasar, Router, and Store
 const $q = useQuasar();
@@ -275,6 +276,7 @@ const router = useRouter();
 const route = useRoute();
 const learningsStore = useLearningsStore();
 const authStore = useAuthCommunityStore(); // Access user information
+const chatStore = useChatStore();
 
 // Fetch learning item
 const learningItemId = route.params.id;
@@ -522,54 +524,69 @@ function editMaxPeople() {
   toggleMaxPeopleDialog();
 }
 
-// Submit handler
 
+// Submit handler
 async function submit() {
   if (!reason.value) {
-    $q.notify({ type: 'negative', message: 'Please provide your reason before submitting.' });
+    $q.notify({ type: "negative", message: "Please provide your reason before submitting." });
     return;
   }
 
   const userId = authStore.user?.uid;
-
   if (!userId) {
-    $q.notify({ type: 'negative', message: 'You must be logged in to submit.' });
+    $q.notify({ type: "negative", message: "You must be logged in to submit." });
     return;
   }
 
-  const isRequest = learningItem.value?.isRequest;
+  const userProfile = authStore.profile || { firstName: "Unknown", lastName: "", avatarUrl: "" };
 
+  const isRequest = learningItem.value?.isRequest;
   const submissionData = {
     learningId: learningItemId,
     userId,
     reason: reason.value,
+    firstName: userProfile.firstName,
+    lastName: userProfile.lastName,
+    avatarUrl: userProfile.avatarUrl || "",
     createdAt: new Date().toISOString(),
   };
 
   try {
     if (isRequest) {
-      // Handle "Offer to Help"
-      submissionData.preferences = {
-        date: learningItem.value?.date,
-        timeOfDay: learningItem.value?.timeOfDay,
-        duration: learningItem.value?.duration,
-        location: learningItem.value?.location,
-        locationDetails: learningItem.value?.location === 'inPerson' ? learningItem.value?.locationDetails : null,
-        maxPeople: learningItem.value?.maxPeople,
-      };
-      await learningsStore.addOffer(submissionData);
-      $q.notify({ type: 'positive', message: 'Your offer has been submitted successfully!' });
+      const participation = await learningsStore.createLearningParticipation(submissionData);
+
+      await chatStore.addMessage({
+        ...submissionData,
+        learningParticipationId: participation.id,
+        messageType: "request",
+        parentMessageId: null,
+      });
+
+      await learningsStore.updateLearningItem(learningItemId, { requests: (learningItem.value.requests || 0) + 1 });
+      $q.notify({ type: "positive", message: "Successfully joined the learning offering!" });
     } else {
-      // Handle "Join Now"
-      await learningsStore.joinOffer(submissionData);
-      $q.notify({ type: 'positive', message: 'Successfully joined the learning offering!' });
+      const offer = await learningsStore.createLearningOffer(submissionData);
+
+      await chatStore.addMessage({
+        ...submissionData,
+        learningOfferId: offer.id,
+        messageType: "offer",
+        parentMessageId: null,
+      });
+
+      await learningsStore.updateLearningItem(learningItemId, { offers: (learningItem.value.offers || 0) + 1 });
+      $q.notify({ type: "positive", message: "Your offer has been submitted successfully!" });
     }
-    router.push('/mylearnings');
+
+    router.push("/mylearnings");
   } catch (error) {
-    console.error('Error submitting:', error);
-    $q.notify({ type: 'negative', message: 'Failed to submit. Please try again later.' });
+    console.error("Error submitting:", error);
+    $q.notify({ type: "negative", message: "Failed to submit. Please try again later." });
   }
 }
+
+
+
 
 
 // Navigation handler
